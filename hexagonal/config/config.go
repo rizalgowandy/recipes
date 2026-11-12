@@ -1,8 +1,9 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
 	"os"
+
+	"gopkg.in/yaml.v2"
 )
 
 // Config struct for structuring the config data, can be extended accordingly
@@ -24,7 +25,7 @@ func NewConfig(configFile string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	cfg := &Config{}
 	yd := yaml.NewDecoder(file)
 	err = yd.Decode(cfg)

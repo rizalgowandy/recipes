@@ -5,15 +5,14 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 var validate = validator.New()
 
 // Validate validates the input struct
-func Validate(payload interface{}) *fiber.Error {
+func Validate(payload any) *fiber.Error {
 	err := validate.Struct(payload)
-
 	if err != nil {
 		var errors []string
 		for _, err := range err.(validator.ValidationErrors) {

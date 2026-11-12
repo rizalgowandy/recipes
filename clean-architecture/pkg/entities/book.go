@@ -1,8 +1,9 @@
 package entities
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Book Constructs your Book model under entities.
@@ -14,7 +15,7 @@ type Book struct {
 	UpdatedAt time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
 
-// DeleteRequest struct is used to parse Delete Reqeusts for Books
+// DeleteRequest struct is used to parse Delete Requests for Books
 type DeleteRequest struct {
 	ID string `json:"id"`
 }

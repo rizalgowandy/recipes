@@ -1,23 +1,31 @@
 module validation
 
-go 1.17
+go 1.26.0
 
 require (
-	github.com/go-playground/validator/v10 v10.10.0
-	github.com/gofiber/fiber/v2 v2.25.0
-	github.com/joho/godotenv v1.4.0
+	github.com/go-playground/validator/v10 v10.30.6
+	github.com/gofiber/fiber/v3 v3.7.0
+	github.com/joho/godotenv v1.5.1
 )
 
 require (
-	github.com/andybalholm/brotli v1.0.4 // indirect
-	github.com/go-playground/locales v0.14.0 // indirect
-	github.com/go-playground/universal-translator v0.18.0 // indirect
-	github.com/klauspost/compress v1.14.2 // indirect
-	github.com/leodido/go-urn v1.2.1 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.16 // indirect
+	github.com/go-playground/locales v0.14.2 // indirect
+	github.com/go-playground/universal-translator v0.18.2 // indirect
+	github.com/gofiber/schema v1.9.4 // indirect
+	github.com/gofiber/utils/v2 v2.6.5 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
+	github.com/leodido/go-urn v1.5.0 // indirect
+	github.com/mattn/go-colorable v0.1.16 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/molecule-man/go-brrr v1.3.1 // indirect
+	github.com/philhofer/fwd v1.2.1 // indirect
+	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.33.0 // indirect
-	github.com/valyala/tcplisten v1.0.0 // indirect
-	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed // indirect
-	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	github.com/valyala/fasthttp v1.78.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )

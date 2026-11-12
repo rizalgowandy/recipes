@@ -1,23 +1,24 @@
 package infrastructure
 
 import (
+	"fmt"
+	"log"
+
 	"docker-mariadb-clean-arch/internal/auth"
 	"docker-mariadb-clean-arch/internal/city"
 	"docker-mariadb-clean-arch/internal/misc"
 	"docker-mariadb-clean-arch/internal/user"
-	"fmt"
-	"log"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/compress"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/etag"
-	"github.com/gofiber/fiber/v2/middleware/favicon"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/compress"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/etag"
+	"github.com/gofiber/fiber/v3/middleware/favicon"
+	"github.com/gofiber/fiber/v3/middleware/limiter"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
 
 // Run our Fiber webserver.
@@ -25,7 +26,7 @@ func Run() {
 	// Try to connect to our database as the initial part.
 	mariadb, err := ConnectToMariaDB()
 	if err != nil {
-		log.Fatal("Database connection error: $s", err)
+		log.Fatalf("Database connection error: %s", err)
 	}
 
 	// Creates a new Fiber instance.
@@ -35,13 +36,14 @@ func Run() {
 	})
 
 	// Use global middlewares.
-	app.Use(cors.New())
+	// TODO: restrict AllowOrigins to your actual domain(s) in production.
+	app.Use(cors.New(cors.Config{AllowOrigins: []string{"http://localhost:3000"}}))
 	app.Use(compress.New())
 	app.Use(etag.New())
 	app.Use(favicon.New())
 	app.Use(limiter.New(limiter.Config{
 		Max: 100,
-		LimitReached: func(c *fiber.Ctx) error {
+		LimitReached: func(c fiber.Ctx) error {
 			return c.Status(fiber.StatusTooManyRequests).JSON(&fiber.Map{
 				"status":  "fail",
 				"message": "You have requested too many in a single time-frame! Please wait another minute!",
@@ -67,7 +69,7 @@ func Run() {
 	user.NewUserHandler(app.Group("/api/v1/users"), userService)
 
 	// Prepare an endpoint for 'Not Found'.
-	app.All("*", func(c *fiber.Ctx) error {
+	app.All("*", func(c fiber.Ctx) error {
 		errorMessage := fmt.Sprintf("Route '%s' does not exist in this API!", c.OriginalURL())
 
 		return c.Status(fiber.StatusNotFound).JSON(&fiber.Map{

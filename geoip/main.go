@@ -6,8 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/template/html"
+	"github.com/gofiber/fiber/v3/middleware/static"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/template/html/v3"
 
 	"geoip/handlers"
 )
@@ -25,12 +27,12 @@ func main() {
 	app.Get("/", handlers.Render())
 
 	// Serve static assets
-	app.Static("/", "./public", fiber.Static{
+	app.Get("/*", static.New("./public", static.Config{
 		Compress: true,
-	})
+	}))
 
 	// Main GEO handler that is cached for 10 minutes
-	app.Get("/geo/:ip?", handlers.Cache(10*time.Minute), handlers.GEO())
+	app.Get("/geo", handlers.Cache(10*time.Minute), handlers.GEO())
 
 	// Handle 404 errors
 	app.Use(handlers.NotFound("./public/404.html"))

@@ -1,0 +1,183 @@
+name: Build GoFiber Recipes
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - "**"
+      - "!**.md"
+      - "!.github/dependabot.yml"
+      - "!.github/workflows/**"
+      - ".github/workflows/build.yml"
+  pull_request:
+    branches:
+      - '*'
+    paths:
+      - "**"
+      - "!**.md"
+      - "!.github/dependabot.yml"
+      - "!.github/workflows/**"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  builds:
+    strategy:
+      matrix:
+        go-version:
+          - "1.26.x"
+          - "1.27.x"
+    # 8 vCPU: the build step fans the 91 modules out over the cores, and they share
+    # one warm build cache instead of each rebuilding the fiber dep tree
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 60
+    steps:
+      - name: Fetch Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # Fetch all history so diffs can be performed
+          filter: blob:none # --name-only only walks trees; HEAD's blobs arrive lazily
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
+
+      - name: Get directories to process
+        id: get_dirs
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Walk up to the module owning each changed file: splitting on the first path
+            # segment resolved nested modules like clean-code/app to a dir with no go.mod,
+            # so their PRs went green unbuilt. --no-renames so a move also rebuilds the source.
+            changed_dirs=$(git diff --no-renames --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | while IFS= read -r file; do
+              dir=$(dirname "$file")
+              while [[ "$dir" != "." && ! -f "$dir/go.mod" ]]; do dir=$(dirname "$dir"); done
+              # not `[[ ... ]] && echo`: that is the loop's exit status, and -e plus pipefail
+              # would kill the step whenever the last changed file belongs to no module.
+              if [[ -f "$dir/go.mod" ]]; then echo "$dir"; fi
+            done | sort -u | tr '\n' ' ')
+          else
+            # For master branch, process all directories with go.mod
+            changed_dirs=$(find . -name go.mod -exec dirname {} \; | tr '\n' ' ')
+          fi
+
+          {
+            echo "changed_dirs<<EOF"
+            echo "${changed_dirs}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+
+      # tidy check, vet and build run per module in one pass: once the shared build cache is warm
+      # a single module barely keeps one core busy, so the modules are what we spread.
+      # Output is prefixed because parallel invocations interleave; xargs exits 123
+      # as soon as any module failed.
+      - name: Tidy check, vet and build changed modules
+        shell: bash
+        env:
+          CHANGED_DIRS: ${{ env.changed_dirs }}
+        run: |
+          set -euo pipefail
+          # setup-go exports GOTOOLCHAIN=local, which beats a job-level env; auto lets
+          # the older matrix leg fetch the toolchain a module's go.mod asks for
+          export GOTOOLCHAIN=auto
+          # sed instead of grep: grep exits 1 when it filters everything out, which
+          # pipefail would turn into a failed step for a PR that touched no module.
+          # shellcheck disable=SC2086 # CHANGED_DIRS is a space-separated list, splitting is intended
+          printf '%s\n' $CHANGED_DIRS | sed '/^$/d' | sort -u > dirs.txt
+          echo "Processing $(wc -l < dirs.txt) directories on $(nproc) cores"
+          # vet and build succeed silently, so each module reports itself: without that
+          # the whole step logs nothing and "all green" reads the same as "never ran".
+          # shellcheck disable=SC2016 # the inner script must expand in the spawned shell, not here
+          xargs -P "$(nproc)" -I{} bash -c '
+              dir="$1"
+              [ -f "$dir/go.mod" ] || { echo "[$dir] skipped, no go.mod"; exit 0; }
+              set -o pipefail
+              cd "$dir" || exit 1
+              if { go mod tidy -diff && go vet ./... && go build -race ./...; } 2>&1 | sed "s|^|[$dir] |"; then
+                echo "[$dir] ok"
+              else
+                echo "[$dir] FAILED"
+                exit 1
+              fi
+            ' _ {} < dirs.txt
+
+  # The check name must keep matching `builds` in dependabot_automerge.yml.
+  make-builds:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - name: Fetch Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # Fetch all history so diffs can be performed
+          filter: blob:none # --name-only only walks trees; HEAD's blobs arrive lazily
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # Whatever a recipe needs beyond `go build` (frontend, codegen) lives in its
+      # Makefile; this job only provides Go and Node and runs the `build` target.
+      - name: Run make build in changed recipes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          has_build() {
+            local mk
+            for mk in GNUmakefile makefile Makefile; do
+              if [[ -f "$1/$mk" ]] && grep -qE '^build[[:space:]]*:' "$1/$mk"; then return 0; fi
+            done
+            return 1
+          }
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            # Walk up to the recipe owning each changed file, like the go.mod lookup above.
+            git diff --no-renames --name-only "$BASE_SHA" "$HEAD_SHA" | while IFS= read -r file; do
+              dir=$(dirname "$file")
+              while [[ "$dir" != "." ]] && ! has_build "$dir"; do dir=$(dirname "$dir"); done
+              if [[ "$dir" != "." ]]; then echo "$dir"; fi
+            done | sort -u > dirs.txt
+          else
+            find . -mindepth 2 \( -name GNUmakefile -o -name makefile -o -name Makefile \) -exec dirname {} \; | sort -u | while IFS= read -r dir; do
+              if has_build "$dir"; then echo "$dir"; fi
+            done > dirs.txt
+          fi
+          echo "Processing $(wc -l < dirs.txt) directories"
+          failed=0
+          while IFS= read -r dir; do
+            echo "::group::make build in $dir"
+            if make -C "$dir" build; then
+              echo "[$dir] ok"
+            else
+              echo "::error::make build failed in $dir"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done < dirs.txt
+          exit "$failed"

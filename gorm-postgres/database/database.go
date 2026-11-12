@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/zeimedee/go-postgres/models"
+	"gorm-postgres/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -16,23 +16,28 @@ type Dbinstance struct {
 
 var DB Dbinstance
 
-// connectDb
+// ConnectDb opens the PostgreSQL connection and runs auto-migration.
+// Set DB_DSN env var to override the default DSN.
+// Default DSN: host=localhost user=postgres password='' dbname=go-db port=5432 sslmode=disable
 func ConnectDb() {
-	dsn := "host=localhost user=postgres password='' dbname=go-db port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+	dsn := os.Getenv("DB_DSN")
+	if dsn == "" {
+		dsn = "host=localhost user=postgres password='' dbname=go-db port=5432 sslmode=disable"
+	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
-
 	if err != nil {
 		log.Fatal("Failed to connect to database. \n", err)
-		os.Exit(2)
 	}
 
 	log.Println("connected")
 	db.Logger = logger.Default.LogMode(logger.Info)
 	log.Println("running migrations")
-	db.AutoMigrate(&models.Book{})
+	if err = db.AutoMigrate(&models.Book{}); err != nil {
+		log.Fatal("Failed to run migrations. \n", err)
+	}
 
 	DB = Dbinstance{
 		Db: db,

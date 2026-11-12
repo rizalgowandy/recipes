@@ -2,29 +2,31 @@ package main
 
 import (
 	"html/template"
+	"log"
 	"os"
+	"path/filepath"
+
+	"github.com/gofiber/fiber/v3/middleware/static"
 
 	"github.com/gofiber/recipes/template-asset-bundling/handlers"
 
-	"log"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/template/html"
-
-	"path/filepath"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/template/html/v3"
 )
 
 func main() {
 	// Create view engine
 	engine := html.New("./views", ".html")
 
-	// Disable this in production
-	engine.Reload(true)
+	// Enable template reloading in development only
+	if os.Getenv("APP_ENV") != "production" {
+		engine.Reload(true)
+	}
 
 	engine.AddFunc("getCssAsset", func(name string) (res template.HTML) {
-		filepath.Walk("public/assets", func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk("public/assets", func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -33,6 +35,9 @@ func main() {
 			}
 			return nil
 		})
+		if err != nil {
+			log.Println(err)
+		}
 		return
 	})
 
@@ -51,7 +56,7 @@ func main() {
 	app.Get("/about", handlers.About)
 
 	// Setup static files
-	app.Static("/public", "./public")
+	app.Get("/public*", static.New("./public"))
 
 	// Handle not founds
 	app.Use(handlers.NotFound)

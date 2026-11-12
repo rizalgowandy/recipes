@@ -3,52 +3,64 @@ package book
 import (
 	"fiber-gorm/database"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	"github.com/gofiber/fiber/v3"
+	"gorm.io/gorm"
 )
 
 type Book struct {
 	gorm.Model
-	Title  string `json:"name"`
+	Title  string `json:"title"`
 	Author string `json:"author"`
 	Rating int    `json:"rating"`
 }
 
-func GetBooks(c *fiber.Ctx) error {
+func GetBooks(c fiber.Ctx) error {
 	db := database.DBConn
 	var books []Book
-	db.Find(&books)
+	if err := db.Find(&books).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
 	return c.JSON(books)
 }
 
-func GetBook(c *fiber.Ctx) error {
+func GetBook(c fiber.Ctx) error {
 	id := c.Params("id")
 	db := database.DBConn
 	var book Book
-	db.Find(&book, id)
+	if err := db.First(&book, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).SendString("No Book Found with ID")
+		}
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
 	return c.JSON(book)
 }
 
-func NewBook(c *fiber.Ctx) error {
+func NewBook(c fiber.Ctx) error {
 	db := database.DBConn
 	book := new(Book)
-	if err := c.BodyParser(book); err != nil {
-		return c.Status(503).SendString(err.Error())
+	if err := c.Bind().Body(book); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	db.Create(&book)
+	if err := db.Create(&book).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
 	return c.JSON(book)
 }
 
-func DeleteBook(c *fiber.Ctx) error {
+func DeleteBook(c fiber.Ctx) error {
 	id := c.Params("id")
 	db := database.DBConn
 
 	var book Book
-	db.First(&book, id)
-	if book.Title == "" {
-		return c.Status(500).SendString("No Book Found with ID")
+	if err := db.First(&book, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).SendString("No Book Found with ID")
+		}
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
-	db.Delete(&book)
+	if err := db.Delete(&book).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
 	return c.SendString("Book Successfully deleted")
 }

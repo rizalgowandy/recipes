@@ -1,19 +1,25 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"github.com/cloudflare/tableflip"
-	"github.com/gofiber/fiber/v2"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/cloudflare/tableflip"
+	"github.com/gofiber/fiber/v3"
 )
 
 const version = "v0.0.1"
 
 func main() {
-	upg, _ := tableflip.New(tableflip.Options{})
+	upg, err := tableflip.New(tableflip.Options{})
+	if err != nil {
+		log.Fatalf("tableflip.New: %v", err)
+	}
 	defer upg.Stop()
 
 	// By prefixing PID to log, easy to interrupt from another process.
@@ -24,21 +30,30 @@ func main() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP)
 		for range sig {
-			upg.Upgrade()
+			if err := upg.Upgrade(); err != nil {
+				log.Printf("upg.Upgrade: %v", err)
+			}
 		}
 	}()
 
 	// Listen must be called before Ready
-	ln, _ := upg.Listen("tcp", "localhost:8080")
-	defer ln.Close()
+	ln, err := upg.Listen("tcp", "localhost:8080")
+	if err != nil {
+		log.Fatalf("upg.Listen: %v", err)
+	}
+	defer func() { _ = ln.Close() }() // normally already closed by the app shutdown
 
 	app := fiber.New()
-	app.Get("/version", func(c *fiber.Ctx) error {
+	app.Get("/version", func(c fiber.Ctx) error {
 		log.Println(version)
 		return c.SendString(version)
 	})
 
-	go app.Listener(ln)
+	go func() {
+		if err := app.Listener(ln); err != nil {
+			log.Printf("app.Listener: %v", err)
+		}
+	}()
 
 	// tableflip ready
 	if err := upg.Ready(); err != nil {
@@ -46,4 +61,19 @@ func main() {
 	}
 
 	<-upg.Exit()
+
+	// Make sure to set a deadline on exiting the process
+	// after upg.Exit() is closed. No new upgrades can be
+	// performed if the parent doesn't exit.
+	time.AfterFunc(30*time.Second, func() {
+		log.Println("Graceful shutdown timed out")
+		os.Exit(1)
+	})
+
+	// Wait for connections to drain.
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	if err := app.ShutdownWithContext(ctx); err != nil {
+		log.Printf("ShutdownWithContext: %v", err)
+	}
 }

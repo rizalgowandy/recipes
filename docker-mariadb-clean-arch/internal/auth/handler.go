@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt"
+	"github.com/gofiber/fiber/v3"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // Create an authentication handler. Leave this empty, as we have no domains nor use-cases.
@@ -23,7 +23,7 @@ func NewAuthHandler(authRoute fiber.Router) {
 }
 
 // Signs in a user and gives them a JWT.
-func (h *AuthHandler) signInUser(c *fiber.Ctx) error {
+func (h *AuthHandler) signInUser(c fiber.Ctx) error {
 	// Create a struct so the request body can be mapped here.
 	type loginRequest struct {
 		Username string `json:"username"`
@@ -34,12 +34,12 @@ func (h *AuthHandler) signInUser(c *fiber.Ctx) error {
 	type jwtClaims struct {
 		UserID string `json:"uid"`
 		User   string `json:"user"`
-		jwt.StandardClaims
+		jwt.RegisteredClaims
 	}
 
 	// Get request body.
 	request := &loginRequest{}
-	if err := c.BodyParser(request); err != nil {
+	if err := c.Bind().Body(request); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
 			"status":  "fail",
 			"message": err.Error(),
@@ -58,10 +58,13 @@ func (h *AuthHandler) signInUser(c *fiber.Ctx) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwtClaims{
 		os.Getenv("API_USERID"),
 		os.Getenv("API_USERNAME"),
-		jwt.StandardClaims{
-			Audience:  "docker-mariadb-clean-arch-users",
-			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
-			Issuer:    "docker-mariadb-clean-arch",
+		jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "docker-mariadb-clean-arch-users",
+			Subject:   "docker-mariadb-clean-arch-users",
+			Audience:  []string{"docker-mariadb-clean-arch-users"},
 		},
 	})
 	signedToken, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
@@ -76,7 +79,7 @@ func (h *AuthHandler) signInUser(c *fiber.Ctx) error {
 		Value:    signedToken,
 		Path:     "/",
 		Expires:  time.Now().Add(time.Hour * 24),
-		Secure:   false,
+		Secure:   false, // Development only; set to true in production.
 		HTTPOnly: true,
 	})
 
@@ -88,13 +91,13 @@ func (h *AuthHandler) signInUser(c *fiber.Ctx) error {
 }
 
 // Logs out user and removes their JWT.
-func (h *AuthHandler) signOutUser(c *fiber.Ctx) error {
+func (h *AuthHandler) signOutUser(c fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
 		Name:     "jwt",
 		Value:    "loggedOut",
 		Path:     "/",
 		Expires:  time.Now().Add(time.Second * 10),
-		Secure:   false,
+		Secure:   false, // Development only; set to true in production.
 		HTTPOnly: true,
 	})
 
@@ -105,14 +108,14 @@ func (h *AuthHandler) signOutUser(c *fiber.Ctx) error {
 }
 
 // A single private route that only logged in users can access.
-func (h *AuthHandler) privateRoute(c *fiber.Ctx) error {
+func (h *AuthHandler) privateRoute(c fiber.Ctx) error {
 	// Give form to our output response.
 	type jwtResponse struct {
-		UserID interface{} `json:"uid"`
-		User   interface{} `json:"user"`
-		Iss    interface{} `json:"iss"`
-		Aud    interface{} `json:"aud"`
-		Exp    interface{} `json:"exp"`
+		UserID any `json:"uid"`
+		User   any `json:"user"`
+		Iss    any `json:"iss"`
+		Aud    any `json:"aud"`
+		Exp    any `json:"exp"`
 	}
 
 	// Prepare our variables to be displayed.

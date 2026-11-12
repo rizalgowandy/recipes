@@ -36,7 +36,7 @@ func (r *mariaDBRepository) GetCities(ctx context.Context) (*[]CityAndUser, erro
 	if err != nil {
 		return nil, err
 	}
-	defer res.Close()
+	defer func() { _ = res.Close() }()
 
 	// Scan all of the cities from the results.
 	for res.Next() {
@@ -61,6 +61,12 @@ func (r *mariaDBRepository) GetCities(ctx context.Context) (*[]CityAndUser, erro
 		cities = append(cities, *city)
 	}
 
+	// res.Next() also stops on a cancelled context, so without this the
+	// caller would receive a partial slice and a nil error.
+	if err := res.Err(); err != nil {
+		return nil, err
+	}
+
 	return &cities, nil
 }
 
@@ -74,7 +80,7 @@ func (r *mariaDBRepository) GetCity(ctx context.Context, cityID int) (*CityAndUs
 	if err != nil {
 		return nil, err
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	// Get one city and insert it to the 'city' struct.
 	// If it's empty, return null.
@@ -107,7 +113,7 @@ func (r *mariaDBRepository) CreateCity(ctx context.Context, city *City) error {
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	// Insert one city.
 	_, err = stmt.ExecContext(ctx, city.Name, city.Created, city.Modified, city.User)
@@ -126,7 +132,7 @@ func (r *mariaDBRepository) UpdateCity(ctx context.Context, cityID int, city *Ci
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	// Update one city.
 	_, err = stmt.ExecContext(ctx, city.Name, city.Modified, city.User, cityID)
@@ -145,7 +151,7 @@ func (r *mariaDBRepository) DeleteCity(ctx context.Context, cityID int) error {
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	// Delete one city.
 	_, err = stmt.ExecContext(ctx, cityID)

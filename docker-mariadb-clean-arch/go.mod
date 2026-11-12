@@ -1,14 +1,30 @@
 module docker-mariadb-clean-arch
 
-go 1.16
+go 1.26.0
 
 require (
-	github.com/andybalholm/brotli v1.0.3 // indirect
-	github.com/go-sql-driver/mysql v1.6.0
-	github.com/gofiber/fiber/v2 v2.17.0
-	github.com/gofiber/jwt/v2 v2.2.5
-	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/klauspost/compress v1.13.4 // indirect
-	github.com/valyala/fasthttp v1.28.0 // indirect
-	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
+	github.com/go-sql-driver/mysql v1.10.1
+	github.com/gofiber/contrib/v3/jwt v1.2.9
+	github.com/gofiber/fiber/v3 v3.7.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
+)
+
+require (
+	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/MicahParks/keyfunc/v2 v2.1.0 // indirect
+	github.com/gofiber/schema v1.9.4 // indirect
+	github.com/gofiber/utils/v2 v2.6.5 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
+	github.com/mattn/go-colorable v0.1.16 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/molecule-man/go-brrr v1.3.1 // indirect
+	github.com/philhofer/fwd v1.2.1 // indirect
+	github.com/tinylib/msgp v1.6.5 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.78.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )

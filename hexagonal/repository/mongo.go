@@ -1,14 +1,15 @@
 package repository
 
 import (
-	"catalog/domain"
 	"context"
+	"time"
+
+	"catalog/domain"
+
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
-	"time"
 )
 
 type mongoRepository struct {
@@ -59,7 +60,7 @@ func (r *mongoRepository) Update(product *domain.Product) error {
 		ctx,
 		bson.M{"code": product.Code},
 		bson.D{
-			{"$set", bson.D{{"name", product.Name}, {"price", product.Price}}},
+			{Key: "$set", Value: bson.D{{Key: "name", Value: product.Name}, {Key: "price", Value: product.Price}}},
 		},
 	)
 	if err != nil {
@@ -71,19 +72,19 @@ func (r *mongoRepository) Update(product *domain.Product) error {
 func (r *mongoRepository) FindAll() ([]*domain.Product, error) {
 	var items []*domain.Product
 
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+	defer cancel()
+
 	collection := r.client.Database(r.db).Collection("products")
-	cur, err := collection.Find(context.Background(), bson.D{})
-
+	cur, err := collection.Find(ctx, bson.D{})
 	if err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrap(err, "repository find all")
 	}
-	defer cur.Close(context.Background())
-	for cur.Next(context.TODO()) {
-
+	defer func() { _ = cur.Close(ctx) }()
+	for cur.Next(ctx) {
 		var item domain.Product
 		if err := cur.Decode(&item); err != nil {
-			log.Fatal(err)
-			return nil, err
+			return nil, errors.Wrap(err, "repository decode")
 		}
 		items = append(items, &item)
 	}
@@ -95,9 +96,8 @@ func (r *mongoRepository) Delete(code string) error {
 	defer cancel()
 	filter := bson.M{"code": code}
 
-	collection := r.client.Database(r.db).Collection("items")
+	collection := r.client.Database(r.db).Collection("products")
 	_, err := collection.DeleteOne(ctx, filter)
-
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func newMongoClient(mongoServerURL string, timeout int) (*mongo.Client, error) {
 	defer cancel()
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	return client, nil
 }
@@ -130,5 +130,4 @@ func NewMongoRepository(mongoServerURL, mongoDb string, timeout int) (domain.Rep
 	}
 
 	return repo, nil
-
 }

@@ -8,13 +8,15 @@ import (
 	"os"
 
 	firebase "firebase.google.com/go"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/joho/godotenv"
 )
 
-var app *fiber.App
-var fbApp *firebase.App
-var projectID string
+var (
+	app       *fiber.App
+	fbApp     *firebase.App
+	projectID string
+)
 
 // Hero db heroes struct
 type Hero struct {
@@ -39,8 +41,7 @@ func init() {
 		DatabaseURL: "https://" + projectID + ".firebaseio.com",
 	}
 
-	fbApp, err := firebase.NewApp(ctx, conf)
-
+	fbApp, err = firebase.NewApp(ctx, conf)
 	if err != nil {
 		log.Fatalf("functions.init: NewApp %v\n", err)
 	}
@@ -54,25 +55,25 @@ func init() {
 
 	app = fiber.New()
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Health check ✅")
 	})
 
 	group := app.Group("api")
 
-	group.Get("/hello", func(c *fiber.Ctx) error {
+	group.Get("/hello", func(c fiber.Ctx) error {
 		return c.SendString("Hello World 🚀")
 	})
 
-	group.Get("/ola", func(c *fiber.Ctx) error {
+	group.Get("/ola", func(c fiber.Ctx) error {
 		return c.SendString("Olá Mundo 🚀")
 	})
 
-	group.Get("/heroes", func(c *fiber.Ctx) error {
+	group.Get("/heroes", func(c fiber.Ctx) error {
 		ctx := context.Background()
 		var heroes map[string]Hero
 		if err := heroesRef.Get(ctx, &heroes); err != nil {
-			return c.JSON(map[string]interface{}{
+			return c.JSON(map[string]any{
 				"message": err.Error(),
 			})
 		}
@@ -81,16 +82,16 @@ func init() {
 		})
 	})
 
-	group.Get("/heroes/:id", func(c *fiber.Ctx) error {
+	group.Get("/heroes/:id", func(c fiber.Ctx) error {
 		id := c.Params("id")
 		var hero Hero
 		if err := heroesRef.Child(id).Get(ctx, &hero); err != nil {
-			return c.JSON(map[string]interface{}{
+			return c.JSON(map[string]any{
 				"message": err.Error(),
 			})
 		}
 		if hero.ID == "" {
-			return c.Status(fiber.StatusNotFound).JSON(map[string]interface{}{
+			return c.Status(fiber.StatusNotFound).JSON(map[string]any{
 				"message": "Not Found",
 			})
 		}
@@ -107,7 +108,7 @@ func Start(addr string) error {
 func HeroesAPI(w http.ResponseWriter, r *http.Request) {
 	err := CloudFunctionRouteToFiber(app, w, r)
 	if err != nil {
-		fmt.Fprintf(w, "err : %v", err)
+		_, _ = fmt.Fprintf(w, "err : %v", err)
 		return
 	}
 }

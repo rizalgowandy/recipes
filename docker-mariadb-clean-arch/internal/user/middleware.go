@@ -3,17 +3,13 @@ package user
 import (
 	"context"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // If user does not exist, do not allow one to access the API.
-func (h *UserHandler) checkIfUserExistsMiddleware(c *fiber.Ctx) error {
-	// Create a new customized context.
-	customContext, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func (h *UserHandler) checkIfUserExistsMiddleware(c fiber.Ctx) error {
 	// Fetch parameter.
-	targetedUserID, err := c.ParamsInt("userID")
+	targetedUserID, err := fiber.Params[int](c, "userID"), error(nil)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(&fiber.Map{
 			"status":  "fail",
@@ -22,7 +18,13 @@ func (h *UserHandler) checkIfUserExistsMiddleware(c *fiber.Ctx) error {
 	}
 
 	// Check if user exists.
-	searchedUser, err := h.userService.GetUser(customContext, targetedUserID)
+	// cancel() is called directly instead of deferred: this is middleware, so
+	// a deferred call would only run after c.Next() returns and would keep the
+	// timer alive for the whole downstream chain. The row is fully scanned
+	// before the call returns, so releasing the context here is safe.
+	ctx, cancel := context.WithTimeout(c.Context(), requestTimeout)
+	searchedUser, err := h.userService.GetUser(ctx, targetedUserID)
+	cancel()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
 			"status":  "fail",

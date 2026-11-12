@@ -1,45 +1,59 @@
 package main
 
 import (
-	"embed"
-	"io/fs"
+	"context"
 	"log"
-	"net/http"
-	"sveltekit-embed/handler"
-	"time"
+	"os/signal"
+	"syscall"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/gofiber/fiber/v3/middleware/static"
+
+	"app/template"
 )
 
-//go:embed public/*.*
-//go:embed public/*/*.*
-//go:embed public/*/*/*.*
-//go:embed public/*/*/*/*.*
-var svelteFS embed.FS
+const (
+	appName    = "Sveltekit Embed App"
+	apiVersion = "v1"
+	port       = ":3000"
+)
 
 func main() {
+	// Create new Fiber Instance
+	app := fiber.New(fiber.Config{AppName: appName})
 
-	// Sub
-	publicFS, err := fs.Sub(svelteFS, "public")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create new fiber instance
-	app := fiber.New()
-
-	// Main GEO handler that is cached for 10 minutes
-	// original code at https://github.com/gofiber/recipes/blob/master/geoip
-	app.Get("/:ip.json", handler.Cache(10*time.Minute), handler.GEO())
-
-	// Serve Single Page application
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:         http.FS(publicFS),
-		NotFoundFile: "index.html",
+	// Middleware
+	app.Use(cors.New(cors.Config{
+		// Development only - restrict in production
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{"*"},
+	}))
+	app.Use(logger.New(logger.Config{
+		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
+	}))
+	// Serve static files
+	app.All("/*", static.New("", static.Config{
+		FS: template.Dist(),
+		// TODO: Migrate to NotFoundHandler (fiber.Handler) - NotFoundFile is deprecated
+		// NotFoundFile: "index.html",
+		IndexNames: []string{"index.html"},
 	}))
 
-	// Listen on port :8080
-	log.Fatal(app.Listen(":8080"))
+	// Listen for OS signals to trigger graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
+	go func() {
+		<-ctx.Done()
+		if err := app.Shutdown(); err != nil {
+			log.Printf("Error shutting down server: %v", err)
+		}
+	}()
+
+	// Start the server
+	if err := app.Listen(port); err != nil {
+		log.Fatal(err)
+	}
 }

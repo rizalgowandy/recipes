@@ -7,23 +7,29 @@ package main
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func main() {
 	// Fiber instance
-	app := fiber.New()
+	app := fiber.New(fiber.Config{BodyLimit: 10 * 1024 * 1024})
 
 	// Routes
-	app.Post("/", func(c *fiber.Ctx) error {
+	app.Post("/", func(c fiber.Ctx) error {
 		// Get first file from form field "document":
 		file, err := c.FormFile("document")
 		if err != nil {
 			return err
 		}
+		// Sanitize filename to prevent path traversal attacks:
+		filename := filepath.Base(file.Filename)
 		// Save file to root directory:
-		return c.SaveFile(file, fmt.Sprintf("./%s", file.Filename))
+		if err := c.SaveFile(file, fmt.Sprintf("./%s", filename)); err != nil {
+			return err
+		}
+		return c.JSON(fiber.Map{"message": "File uploaded successfully"})
 	})
 
 	// Start server

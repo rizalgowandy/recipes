@@ -2,11 +2,12 @@ package main
 
 import (
 	"log"
+	"os"
 	"strconv"
 
 	"github.com/BurntSushi/toml"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/template/html"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/template/html/v3"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 )
@@ -27,16 +28,16 @@ func main() {
 	// and template extension using <engine>.New(dir, ext string)
 	engine := html.New("./templates", ".html")
 
-	// Reload the templates on each render, good for development
-	engine.Reload(true) // Optional. Default: false
+	// Reload the templates on each render in development mode.
+	if os.Getenv("ENV") == "development" {
+		engine.Reload(true)
+	}
 
 	// After you created your engine, you can pass it to Fiber's Views Engine
-	app := fiber.New(fiber.Config{
-		Views: engine,
-	})
+	app := fiber.New(fiber.Config{Views: engine})
 
 	// Render template.
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		lang := c.Query("lang")            // parse language from query
 		accept := c.Get("Accept-Language") // or, parse language from header
 
@@ -50,7 +51,7 @@ func main() {
 		}
 
 		// Set title message.
-		helloPerson := localizer.MustLocalize(&i18n.LocalizeConfig{
+		helloPerson, err := localizer.Localize(&i18n.LocalizeConfig{
 			DefaultMessage: &i18n.Message{
 				ID:    "HelloPerson",
 				Other: "Hello {{.Name}}",
@@ -59,12 +60,18 @@ func main() {
 				"Name": name,
 			},
 		})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
 
 		// Parse and set unread count of emails.
-		unreadEmailCount, _ := strconv.ParseInt(c.Query("unread"), 10, 64)
+		unreadEmailCount, err := strconv.ParseInt(c.Query("unread"), 10, 64)
+		if err != nil {
+			unreadEmailCount = 0
+		}
 
 		// Set your own message for unread emails.
-		myUnreadEmails := localizer.MustLocalize(&i18n.LocalizeConfig{
+		myUnreadEmails, err := localizer.Localize(&i18n.LocalizeConfig{
 			DefaultMessage: &i18n.Message{
 				ID:          "MyUnreadEmails",
 				Description: "The number of unread emails I have",
@@ -73,9 +80,12 @@ func main() {
 			},
 			PluralCount: unreadEmailCount,
 		})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
 
 		// Set other personal message for unread emails.
-		personUnreadEmails := localizer.MustLocalize(&i18n.LocalizeConfig{
+		personUnreadEmails, err := localizer.Localize(&i18n.LocalizeConfig{
 			DefaultMessage: &i18n.Message{
 				ID:          "PersonUnreadEmails",
 				Description: "The number of unread emails a person has",
@@ -83,11 +93,14 @@ func main() {
 				Other:       "{{.Name}} has {{.UnreadEmailCount}} unread emails.",
 			},
 			PluralCount: unreadEmailCount,
-			TemplateData: map[string]interface{}{
+			TemplateData: map[string]any{
 				"Name":             name,
 				"UnreadEmailCount": unreadEmailCount,
 			},
 		})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
 
 		// Return rendered template.
 		return c.Render("index", fiber.Map{

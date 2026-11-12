@@ -2,7 +2,8 @@ package presenter
 
 import (
 	"clean-architecture/pkg/entities"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/gofiber/fiber/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -14,7 +15,7 @@ type Book struct {
 }
 
 // BookSuccessResponse is the singular SuccessResponse that will be passed in the response by
-//Handler
+// Handler
 func BookSuccessResponse(data *entities.Book) *fiber.Map {
 	book := Book{
 		ID:     data.ID,
@@ -29,10 +30,18 @@ func BookSuccessResponse(data *entities.Book) *fiber.Map {
 }
 
 // BooksSuccessResponse is the list SuccessResponse that will be passed in the response by Handler
-func BooksSuccessResponse(data *[]Book) *fiber.Map {
+func BooksSuccessResponse(data *[]entities.Book) *fiber.Map {
+	var books []Book
+	for _, b := range *data {
+		books = append(books, Book{
+			ID:     b.ID,
+			Title:  b.Title,
+			Author: b.Author,
+		})
+	}
 	return &fiber.Map{
 		"status": true,
-		"data":   data,
+		"data":   books,
 		"error":  nil,
 	}
 }

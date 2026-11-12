@@ -1,9 +1,26 @@
-module github.com/gofiber/recipes/graphql
+module main
 
-go 1.16
+go 1.26.0
 
 require (
-	github.com/arsmn/fastgql v0.14.0
-	github.com/gofiber/fiber/v2 v2.11.0
-	github.com/vektah/gqlparser/v2 v2.1.0
+	github.com/gofiber/fiber/v3 v3.7.0
+	github.com/graphql-go/graphql v0.8.1
+)
+
+require (
+	github.com/gofiber/schema v1.9.4 // indirect
+	github.com/gofiber/utils/v2 v2.6.5 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
+	github.com/mattn/go-colorable v0.1.16 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/molecule-man/go-brrr v1.3.1 // indirect
+	github.com/philhofer/fwd v1.2.1 // indirect
+	github.com/tinylib/msgp v1.6.5 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.78.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )

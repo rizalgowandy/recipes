@@ -2,16 +2,17 @@ package services
 
 import (
 	"errors"
+
 	"numtostr/gotodo/app/dal"
 	"numtostr/gotodo/app/types"
 	"numtostr/gotodo/utils"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
 // CreateTodo is responsible for create todo
-func CreateTodo(c *fiber.Ctx) error {
+func CreateTodo(c fiber.Ctx) error {
 	b := new(types.CreateDTO)
 
 	if err := utils.ParseBodyAndValidate(c, b); err != nil {
@@ -37,7 +38,7 @@ func CreateTodo(c *fiber.Ctx) error {
 }
 
 // GetTodos returns the todos list
-func GetTodos(c *fiber.Ctx) error {
+func GetTodos(c fiber.Ctx) error {
 	d := &[]types.TodoResponse{}
 
 	err := dal.FindTodosByUser(d, utils.GetUser(c)).Error
@@ -51,7 +52,7 @@ func GetTodos(c *fiber.Ctx) error {
 }
 
 // GetTodo return a single todo
-func GetTodo(c *fiber.Ctx) error {
+func GetTodo(c fiber.Ctx) error {
 	todoID := c.Params("todoID")
 
 	if todoID == "" {
@@ -71,7 +72,7 @@ func GetTodo(c *fiber.Ctx) error {
 }
 
 // DeleteTodo deletes a single todo
-func DeleteTodo(c *fiber.Ctx) error {
+func DeleteTodo(c fiber.Ctx) error {
 	todoID := c.Params("todoID")
 
 	if todoID == "" {
@@ -94,7 +95,7 @@ func DeleteTodo(c *fiber.Ctx) error {
 }
 
 // CheckTodo TODO
-func CheckTodo(c *fiber.Ctx) error {
+func CheckTodo(c fiber.Ctx) error {
 	b := new(types.CheckTodoDTO)
 	todoID := c.Params("todoID")
 
@@ -106,7 +107,7 @@ func CheckTodo(c *fiber.Ctx) error {
 		return err
 	}
 
-	err := dal.UpdateTodo(todoID, utils.GetUser(c), map[string]interface{}{"completed": b.Completed}).Error
+	err := dal.UpdateTodo(todoID, utils.GetUser(c), map[string]any{"completed": b.Completed}).Error
 	if err != nil {
 		return fiber.NewError(fiber.StatusConflict, err.Error())
 	}
@@ -117,7 +118,7 @@ func CheckTodo(c *fiber.Ctx) error {
 }
 
 // UpdateTodoTitle TODO
-func UpdateTodoTitle(c *fiber.Ctx) error {
+func UpdateTodoTitle(c fiber.Ctx) error {
 	b := new(types.CreateDTO)
 	todoID := c.Params("todoID")
 

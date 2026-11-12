@@ -1,19 +1,39 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/streadway/amqp"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func main() {
-	// Create a new RabbitMQ connection.
-	connRabbitMQ, err := amqp.Dial("amqp://user:password@localhost:5672/")
-	if err != nil {
-		panic(err)
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
+	return fallback
+}
+
+func main() {
+	// Read RabbitMQ URL from environment with fallback.
+	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://user:password@localhost:5672/")
+
+	// Create a new RabbitMQ connection.
+	connRabbitMQ, err := amqp.Dial(rabbitmqURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err := connRabbitMQ.Close(); err != nil {
+			log.Printf("Error closing connection: %v", err)
+		}
+	}()
 
 	// Create a new Fiber instance.
 	app := fiber.New()
@@ -24,10 +44,12 @@ func main() {
 	)
 
 	// Add route.
-	app.Get("/send", func(c *fiber.Ctx) error {
+	app.Get("/send", func(c fiber.Ctx) error {
 		// Checking, if query is empty.
 		if c.Query("msg") == "" {
-			log.Println("Missing 'msg' query parameter")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "msg parameter required",
+			})
 		}
 
 		// Let's start by opening a channel to our RabbitMQ instance
@@ -36,7 +58,11 @@ func main() {
 		if err != nil {
 			return err
 		}
-		defer ch.Close()
+		defer func() {
+			if err := ch.Close(); err != nil {
+				log.Printf("Error closing channel: %v", err)
+			}
+		}()
 
 		// With this channel open, we can then start to interact.
 		// With the instance and declare Queues that we can publish and subscribe to.
@@ -54,7 +80,11 @@ func main() {
 		}
 
 		// Attempt to publish a message to the queue.
-		err = ch.Publish(
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err = ch.PublishWithContext(
+			ctx,
 			"",
 			"TestQueue",
 			false,
@@ -68,9 +98,23 @@ func main() {
 			return err
 		}
 
-		return nil
+		return c.JSON(fiber.Map{"status": "message sent"})
 	})
 
+	// Graceful shutdown: listen for OS signals.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-quit
+		log.Println("Shutting down server...")
+		if err := app.Shutdown(); err != nil {
+			log.Printf("Error during shutdown: %v", err)
+		}
+	}()
+
 	// Start Fiber API server.
-	log.Fatal(app.Listen(":3000"))
+	if err := app.Listen(":3000"); err != nil {
+		log.Fatal(err)
+	}
 }

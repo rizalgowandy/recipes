@@ -7,18 +7,13 @@ package main
 import (
 	"log"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 )
 
 func main() {
 	// Fiber instance
-	app := fiber.New(fiber.Config{
-		// ErrorHandler: func(c *fiber.Ctx, err error) error {
-		// 	c.Status(fiber.StatusInternalServerError)
-		// 	return c.SendString(err.Error())
-		// },
-	})
+	app := fiber.New()
 
 	// Middleware
 	app.Use(recover.New())
@@ -31,6 +26,6 @@ func main() {
 }
 
 // Handler
-func hello(c *fiber.Ctx) error {
+func hello(c fiber.Ctx) error {
 	panic("No worries, I won't crash! 🙏")
 }

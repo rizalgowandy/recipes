@@ -1,0 +1,66 @@
+package main
+
+import (
+	"errors"
+	"log"
+	"slices"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/extractors"
+	"github.com/gofiber/fiber/v3/middleware/keyauth"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+)
+
+var (
+	// authList contains valid API keys. "valid-key" is for demo purposes only.
+	authList   = []string{"valid-key"}
+	errMissing = &fiber.Error{
+		Code:    fiber.StatusForbidden,
+		Message: "Missing API key",
+	}
+	errInvalid = &fiber.Error{
+		Code:    fiber.StatusForbidden,
+		Message: "Invalid API key",
+	}
+)
+
+func main() {
+	app := fiber.New()
+
+	app.Use(logger.New())
+
+	app.Use(keyauth.New(keyauth.Config{
+		SuccessHandler: successHandler,
+		ErrorHandler:   errHandler,
+		Extractor:      extractors.FromHeader("x-api-key"),
+		Validator:      validator,
+	}))
+
+	log.Fatal(app.Listen(":1337"))
+}
+
+func successHandler(ctx fiber.Ctx) error {
+	return ctx.SendStatus(fiber.StatusOK)
+}
+
+func errHandler(ctx fiber.Ctx, err error) error {
+	ctx.Status(fiber.StatusForbidden)
+
+	if errors.Is(err, errMissing) {
+		return ctx.JSON(errMissing)
+	}
+
+	return ctx.JSON(errInvalid)
+}
+
+func validator(ctx fiber.Ctx, s string) (bool, error) {
+	if s == "" {
+		return false, errMissing
+	}
+
+	if slices.Contains(authList, s) {
+		return true, nil
+	}
+
+	return false, errInvalid
+}

@@ -3,37 +3,53 @@ package main
 import (
 	"flag"
 	"log"
+	"sync"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
+	"github.com/gofiber/fiber/v3/middleware/static"
+
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 )
 
-type client struct{} // Add more data to this type if needed
+// Add more data to this type if needed
+type client struct {
+	isClosing bool
+	mu        sync.Mutex
+}
 
-var clients = make(map[*websocket.Conn]client) // Note: although large maps with pointer-like types (e.g. strings) as keys are slow, using pointers themselves as keys is acceptable and fast
-var register = make(chan *websocket.Conn)
-var broadcast = make(chan string)
-var unregister = make(chan *websocket.Conn)
+var (
+	clients    = make(map[*websocket.Conn]*client) // Note: although large maps with pointer-like types (e.g. strings) as keys are slow, using pointers themselves as keys is acceptable and fast
+	register   = make(chan *websocket.Conn)
+	broadcast  = make(chan string)
+	unregister = make(chan *websocket.Conn)
+)
 
 func runHub() {
 	for {
 		select {
 		case connection := <-register:
-			clients[connection] = client{}
+			clients[connection] = &client{}
 			log.Println("connection registered")
 
 		case message := <-broadcast:
 			log.Println("message received:", message)
-
 			// Send the message to all clients
-			for connection := range clients {
-				if err := connection.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-					log.Println("write error:", err)
+			for connection, c := range clients {
+				go func(connection *websocket.Conn, c *client) { // send to each client in parallel so we don't block on a slow client
+					c.mu.Lock()
+					defer c.mu.Unlock()
+					if c.isClosing {
+						return
+					}
+					if err := connection.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+						c.isClosing = true
+						log.Println("write error:", err)
 
-					connection.WriteMessage(websocket.CloseMessage, []byte{})
-					connection.Close()
-					delete(clients, connection)
-				}
+						_ = connection.WriteMessage(websocket.CloseMessage, []byte{})
+						_ = connection.Close()
+						unregister <- connection
+					}
+				}(connection, c)
 			}
 
 		case connection := <-unregister:
@@ -46,11 +62,14 @@ func runHub() {
 }
 
 func main() {
+	addr := flag.String("addr", ":8080", "http service address")
+	flag.Parse()
+
 	app := fiber.New()
 
-	app.Static("/", "./home.html")
+	app.Get("/*", static.New("./home.html"))
 
-	app.Use(func(c *fiber.Ctx) error {
+	app.Use(func(c fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
 			return c.Next()
 		}
@@ -63,7 +82,7 @@ func main() {
 		// When the function returns, unregister the client and close the connection
 		defer func() {
 			unregister <- c
-			c.Close()
+			_ = c.Close()
 		}()
 
 		// Register the client
@@ -88,7 +107,5 @@ func main() {
 		}
 	}))
 
-	addr := flag.String("addr", ":8080", "http service address")
-	flag.Parse()
 	log.Fatal(app.Listen(*addr))
 }

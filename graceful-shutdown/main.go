@@ -1,44 +1,48 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
-	"github.com/gofiber/fiber/v2"
 	"time"
+
+	"github.com/gofiber/fiber/v3"
 )
 
 const idleTimeout = 5 * time.Second
 
 func main() {
-	app := fiber.New(fiber.Config{
-		IdleTimeout: idleTimeout,
-	})
+	app := fiber.New(fiber.Config{IdleTimeout: idleTimeout})
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Hello world!")
 	})
 
 	// Listen from a different goroutine
 	go func() {
-		if err := app.Listen(":3000"); err != nil {
+		if err := app.Listen(":3000"); err != nil && !errors.Is(err, net.ErrClosed) {
 			log.Panic(err)
 		}
 	}()
 
-	c := make(chan os.Signal, 1)   // Create channel to signify a signal being sent
+	c := make(chan os.Signal, 1)                    // Create channel to signify a signal being sent
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM) // When an interrupt or termination signal is sent, notify the channel
+	defer signal.Stop(c)
 
-	_ = <-c // This blocks the main thread until an interrupt is received
+	<-c // This blocks the main thread until an interrupt is received
 	fmt.Println("Gracefully shutting down...")
-	_ = app.Shutdown()
+	if err := app.ShutdownWithTimeout(5 * time.Second); err != nil {
+		log.Printf("Shutdown error: %v\n", err)
+	}
 
 	fmt.Println("Running cleanup tasks...")
 
 	// Your cleanup tasks go here
 	// db.Close()
 	// redisConn.Close()
-	fmt.Println("Fiber was successful shutdown.")
+	fmt.Println("Fiber was successfully shutdown.")
 }

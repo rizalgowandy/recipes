@@ -1,68 +1,88 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/zeimedee/go-postgres/database"
-	"github.com/zeimedee/go-postgres/models"
+	"strconv"
+
+	"github.com/gofiber/fiber/v3"
+	"gorm-postgres/database"
+	"gorm-postgres/models"
 )
 
-//Hello
-func Hello(c *fiber.Ctx) error {
+// Hello
+func Hello(c fiber.Ctx) error {
 	return c.SendString("fiber")
 }
 
-//AddBook
-func AddBook(c *fiber.Ctx) error {
+// AddBook
+func AddBook(c fiber.Ctx) error {
 	book := new(models.Book)
-	if err := c.BodyParser(book); err != nil {
-		return c.Status(400).JSON(err.Error())
+	if err := c.Bind().Body(book); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(err.Error())
 	}
 
-	database.DB.Db.Create(&book)
+	if result := database.DB.Db.Create(&book); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
+	}
 
-	return c.Status(200).JSON(book)
+	return c.Status(fiber.StatusOK).JSON(book)
 }
 
-//AllBooks
-func AllBooks(c *fiber.Ctx) error {
+// AllBooks
+func AllBooks(c fiber.Ctx) error {
 	books := []models.Book{}
-	database.DB.Db.Find(&books)
 
-	return c.Status(200).JSON(books)
-}
-
-//Book
-func Book(c *fiber.Ctx) error {
-	book := []models.Book{}
-	title := new(models.Book)
-	if err := c.BodyParser(title); err != nil {
-		return c.Status(400).JSON(err.Error())
-	}
-	database.DB.Db.Where("title = ?", title.Title).Find(&book)
-	return c.Status(200).JSON(book)
-}
-
-//Update
-func Update(c *fiber.Ctx) error {
-	book := []models.Book{}
-	title := new(models.Book)
-	if err := c.BodyParser(title); err != nil {
-		return c.Status(400).JSON(err.Error())
+	if result := database.DB.Db.Find(&books); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
 	}
 
-	database.DB.Db.Model(&book).Where("title = ?", title.Title).Update("author", title.Author)
-
-	return c.Status(400).JSON("updated")
+	return c.Status(fiber.StatusOK).JSON(books)
 }
 
-//Delete
-func Delete(c *fiber.Ctx) error {
-	book := []models.Book{}
-	title := new(models.Book)
-	if err := c.BodyParser(title); err != nil {
-		return c.Status(400).JSON(err.Error())
-	}
-	database.DB.Db.Where("title = ?", title.Title).Delete(&book)
+// Book returns a single book by ID
+func Book(c fiber.Ctx) error {
+	book := models.Book{}
 
-	return c.Status(200).JSON("deleted")
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON("invalid id")
+	}
+
+	if result := database.DB.Db.First(&book, id); result.Error != nil {
+		return c.Status(fiber.StatusNotFound).JSON(result.Error.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON(book)
+}
+
+// Update updates a book's fields by ID
+func Update(c fiber.Ctx) error {
+	book := new(models.Book)
+	if err := c.Bind().Body(book); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(err.Error())
+	}
+
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON("invalid id")
+	}
+
+	if result := database.DB.Db.Model(&models.Book{}).Where("id = ?", id).Updates(book); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON("updated")
+}
+
+// Delete removes a book by ID
+func Delete(c fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON("invalid id")
+	}
+
+	if result := database.DB.Db.Delete(&models.Book{}, id); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON("deleted")
 }

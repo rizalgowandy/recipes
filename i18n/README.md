@@ -1,4 +1,12 @@
+---
+title: I18n
+keywords: [i18n, go-i18n, internationalization]
+description: Internationalization support.
+---
+
 # Fiber with i18n
+
+[![Github](https://img.shields.io/static/v1?label=&message=Github&color=2ea44f&style=for-the-badge&logo=github)](https://github.com/gofiber/recipes/tree/master/i18n) [![StackBlitz](https://img.shields.io/static/v1?label=&message=StackBlitz&color=2ea44f&style=for-the-badge&logo=StackBlitz)](https://stackblitz.com/github/gofiber/recipes/tree/master/i18n)
 
 This is a quick example of how to use [nicksnyder/go-i18n](https://github.com/nicksnyder/go-i18n) package to translate your Fiber application into multiple languages.
 
@@ -30,6 +38,33 @@ Hola Bob
 
     Tengo 4 correos electrónicos no leídos
     Bob tiene 4 correos electrónicos no leídos
+```
+
+## Getting Started
+
+```bash
+go run main.go
+```
+
+Set `ENV=development` to enable template hot-reload:
+
+```bash
+ENV=development go run main.go
+```
+
+## File Structure
+
+```
+i18n/
+├── lang/
+│   ├── active.en.toml   # English translations (default)
+│   ├── active.es.toml   # Spanish translations
+│   └── active.ru.toml   # Russian translations
+├── templates/
+│   └── index.html       # HTML template
+├── main.go              # Application entry point
+├── go.mod
+└── go.sum
 ```
 
 ## go-i18n docs

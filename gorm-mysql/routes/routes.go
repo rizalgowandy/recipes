@@ -1,79 +1,85 @@
 package routes
 
 import (
+	"strconv"
+
 	"gorm-mysql/database"
 	"gorm-mysql/models"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
-//Hello
-func Hello(c *fiber.Ctx) error {
+// Hello
+func Hello(c fiber.Ctx) error {
 	return c.SendString("fiber")
 }
 
-//AddBook
-func AddBook(c *fiber.Ctx) error {
+// AddBook
+func AddBook(c fiber.Ctx) error {
 	book := new(models.Book)
-	if err := c.BodyParser(book); err != nil {
-		return c.Status(400).JSON(err.Error())
+	if err := c.Bind().Body(book); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(err.Error())
 	}
 
-	database.DBConn.Create(&book)
+	if result := database.DBConn.Create(&book); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
+	}
 
-	return c.Status(200).JSON(book)
+	return c.Status(fiber.StatusOK).JSON(book)
 }
 
-//getBook
-func GetBook(c *fiber.Ctx) error {
+func GetBook(c fiber.Ctx) error {
+	book := models.Book{}
+
+	if result := database.DBConn.First(&book, c.Params("id")); result.Error != nil {
+		return c.Status(fiber.StatusNotFound).JSON(result.Error.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON(book)
+}
+
+// AllBooks
+func AllBooks(c fiber.Ctx) error {
 	books := []models.Book{}
 
-	database.DBConn.First(&books, c.Params("id"))
-
-	return c.Status(200).JSON(books)
-}
-
-//AllBooks
-func AllBooks(c *fiber.Ctx) error {
-	books := []models.Book{}
-
-	database.DBConn.Find(&books)
-
-	return c.Status(200).JSON(books)
-}
-
-//Book
-func Book(c *fiber.Ctx) error {
-	book := []models.Book{}
-	title := new(models.Book)
-	if err := c.BodyParser(title); err != nil {
-		return c.Status(400).JSON(err.Error())
-	}
-	database.DBConn.Where("title = ?", title.Title).Find(&book)
-	return c.Status(200).JSON(book)
-}
-
-//Update
-func Update(c *fiber.Ctx) error {
-	book := []models.Book{}
-	title := new(models.Book)
-	if err := c.BodyParser(title); err != nil {
-		return c.Status(400).JSON(err.Error())
+	if result := database.DBConn.Find(&books); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
 	}
 
-	database.DBConn.Model(&book).Where("title = ?", title.Title).Update("author", title.Author)
-
-	return c.Status(400).JSON("updated")
+	return c.Status(fiber.StatusOK).JSON(books)
 }
 
-//Delete
-func Delete(c *fiber.Ctx) error {
-	book := []models.Book{}
-	title := new(models.Book)
-	if err := c.BodyParser(title); err != nil {
-		return c.Status(400).JSON(err.Error())
+// Update
+func Update(c fiber.Ctx) error {
+	book := new(models.Book)
+	if err := c.Bind().Body(book); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(err.Error())
 	}
-	database.DBConn.Where("title = ?", title.Title).Delete(&book)
 
-	return c.Status(200).JSON("deleted")
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON("invalid id")
+	}
+
+	if result := database.DBConn.Model(&models.Book{}).Where("id = ?", id).Updates(book); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON("updated")
+}
+
+// Delete
+func Delete(c fiber.Ctx) error {
+	book := new(models.Book)
+
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON("invalid id")
+	}
+
+	if result := database.DBConn.Where("id = ?", id).Delete(&book); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(result.Error.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON("deleted")
 }

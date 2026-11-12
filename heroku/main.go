@@ -13,7 +13,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func main() {
@@ -21,15 +21,13 @@ func main() {
 	app := fiber.New()
 
 	// Create new GET route
-	app.Get("/", func(ctx *fiber.Ctx) error {
+	app.Get("/", func(ctx fiber.Ctx) error {
 		return ctx.SendString("Hello Heroku")
 	})
 
 	// Get the PORT from heroku env
 	port := os.Getenv("PORT")
-
-	// Verify if heroku provided the port or not
-	if os.Getenv("PORT") == "" {
+	if port == "" {
 		port = "3000"
 	}
 

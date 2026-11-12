@@ -1,5 +1,5 @@
 # First stage: Get Golang image from DockerHub.
-FROM golang:1.16.5 AS backend-builder
+FROM golang:1.27 AS backend-builder
 
 # Label this container.
 LABEL appname="React App Fiber"
@@ -16,22 +16,22 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o react-router ./cmd/react-router/main.go
 
 # Next stage: Build our frontend application.
-FROM node:16 AS frontend-builder
+FROM node:26@sha256:438603bbb5cda404b9416f0b5c8026f61501ab911760d861ec28c36b5d675725 AS frontend-builder
 
 # Set our working directory for this stage.
 WORKDIR /frontendcompile
 
 # Copy lockfiles and dependencies.
-COPY ./web/package.json ./web/yarn.lock ./
+COPY ./web/package.json ./web/package-lock.json ./
 
 # Install our dependencies.
-RUN yarn
+RUN npm ci
 
 # Copy our installed 'node_modules' and everything else.
 COPY ./web .
 
 # Build our application.
-RUN yarn build
+RUN npm run build
 
 # Last stage: discard everything except our executables.
 FROM alpine:latest AS prod

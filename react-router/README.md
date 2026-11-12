@@ -1,4 +1,12 @@
+---
+title: React
+keywords: [react, react-router, client-side, spa, docker]
+description: Using React.
+---
+
 # React Fiber
+
+[![Github](https://img.shields.io/static/v1?label=&message=Github&color=2ea44f&style=for-the-badge&logo=github)](https://github.com/gofiber/recipes/tree/master/react-router) [![StackBlitz](https://img.shields.io/static/v1?label=&message=StackBlitz&color=2ea44f&style=for-the-badge&logo=StackBlitz)](https://stackblitz.com/github/gofiber/recipes/tree/master/react-router)
 
 A sample application to showcase serving React (with Router) with an almost bare Fiber. Hopefully, this application can be of use (as a reference or others) for those who wants to serve their client-side SPA with Fiber.
 
@@ -29,7 +37,7 @@ If you prefer doing things manually, then the installation steps are as follows:
 
 - Clone the repository by using `git clone git@github.com:gofiber/recipes.git`.
 - Switch to the application by using `cd recipes/react-router`.
-- Install npm dependencies by using `cd web && yarn install`.
-- Build frontend by using `yarn build`.
+- Install npm dependencies by using `cd web && npm ci`.
+- Build frontend by using `npm run build`.
 - Run the Fiber application by using `go run cmd/react-router/main.go`. Don't forget to return to the main repository by using `cd ..` (assuming you are in `web` folder).
 - Open `localhost:8080` in your browser.

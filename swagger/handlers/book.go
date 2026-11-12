@@ -6,14 +6,15 @@ import (
 
 	"swagger/database"
 	"swagger/models"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/gofiber/fiber/v3"
 )
 
 // ResponseHTTP represents response body of this API
 type ResponseHTTP struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data"`
-	Message string      `json:"message"`
+	Success bool   `json:"success"`
+	Data    any    `json:"data"`
+	Message string `json:"message"`
 }
 
 // GetAllBooks is a function to get all books data from database
@@ -25,7 +26,7 @@ type ResponseHTTP struct {
 // @Success 200 {object} ResponseHTTP{data=[]models.Book}
 // @Failure 503 {object} ResponseHTTP{}
 // @Router /v1/books [get]
-func GetAllBooks(c *fiber.Ctx) error {
+func GetAllBooks(c fiber.Ctx) error {
 	db := database.DBConn
 
 	var books []models.Book
@@ -55,7 +56,7 @@ func GetAllBooks(c *fiber.Ctx) error {
 // @Failure 404 {object} ResponseHTTP{}
 // @Failure 503 {object} ResponseHTTP{}
 // @Router /v1/books/{id} [get]
-func GetBookByID(c *fiber.Ctx) error {
+func GetBookByID(c fiber.Ctx) error {
 	id := c.Params("id")
 	db := database.DBConn
 
@@ -95,11 +96,11 @@ func GetBookByID(c *fiber.Ctx) error {
 // @Success 200 {object} ResponseHTTP{data=models.Book}
 // @Failure 400 {object} ResponseHTTP{}
 // @Router /v1/books [post]
-func RegisterBook(c *fiber.Ctx) error {
+func RegisterBook(c fiber.Ctx) error {
 	db := database.DBConn
 
 	book := new(models.Book)
-	if err := c.BodyParser(&book); err != nil {
+	if err := c.Bind().Body(&book); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(ResponseHTTP{
 			Success: false,
 			Message: err.Error(),
@@ -127,7 +128,7 @@ func RegisterBook(c *fiber.Ctx) error {
 // @Failure 404 {object} ResponseHTTP{}
 // @Failure 503 {object} ResponseHTTP{}
 // @Router /v1/books/{id} [delete]
-func DeleteBook(c *fiber.Ctx) error {
+func DeleteBook(c fiber.Ctx) error {
 	id := c.Params("id")
 	db := database.DBConn
 

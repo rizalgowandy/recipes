@@ -8,7 +8,7 @@ import (
 	"crypto/tls"
 	"log"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func main() {
 	app := fiber.New()
 
 	// Routes
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString(c.Protocol()) // => https
 	})
 
@@ -31,7 +31,7 @@ func main() {
 	// Create custom listener
 	ln, err := tls.Listen("tcp", ":443", config)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	// Start server with https/ssl enabled on http://localhost:443

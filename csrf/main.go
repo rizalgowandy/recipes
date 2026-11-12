@@ -8,21 +8,28 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/template/html"
 	"main/routes"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/template/html/v3"
 )
 
 //go:embed views/*
 var viewsfs embed.FS
 
 func main() {
-	engine := html.NewFileSystem(http.FS(viewsfs), ".html").Layout("views/layouts/main")
+	engine := html.NewFileSystem(http.FS(viewsfs), ".html")
 
 	go func() {
 		// ### EVIL SERVER ###
 		// Fiber instance
 		app := fiber.New(fiber.Config{Views: engine})
+		app.Get("/", func(c fiber.Ctx) error {
+			// Render index - start with views directory
+			return c.Render("views/layouts/main", fiber.Map{
+				"Title": "Hello, World!",
+			})
+		})
 		routes.RegisterEvilRoutes(app)
 		fmt.Println("\"Evil\" server started and listening at localhost:3001")
 		// Start server
@@ -32,8 +39,14 @@ func main() {
 	// ### NORMAL SERVER ###
 	// Fiber instance
 	app := fiber.New(fiber.Config{Views: engine})
+	app.Get("/", func(c fiber.Ctx) error {
+		// Render index - start with views directory
+		return c.Render("views/layouts/main", fiber.Map{
+			"Title": "Hello, World!",
+		})
+	})
 	routes.RegisterRoutes(app)
-	fmt.Printf("Server started and listening at localhost:3000 - csrfActive: %v\n", len(os.Args) > 1 && os.Args[1] == "withoutCsrf")
+	fmt.Printf("Server started and listening at localhost:3000 - csrfActive: %v\n", len(os.Args) <= 1 || os.Args[1] != "withoutCsrf")
 	// Start server
 	log.Fatal(app.Listen(":3000"))
 }

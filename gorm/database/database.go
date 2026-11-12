@@ -1,9 +1,7 @@
 package database
 
 import (
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
-var (
-	DBConn *gorm.DB
-)
+var DBConn *gorm.DB
